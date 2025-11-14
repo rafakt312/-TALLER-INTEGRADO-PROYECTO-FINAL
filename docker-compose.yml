@@ -1,0 +1,18 @@
+services:
+  # --- Servicio 1: El Back End de FastAPI ---
+  backend:
+    build: .  # Construye la imagen usando el Dockerfile en este directorio
+    ports:
+      - "8000:8000" # Mapea el puerto 8000 del host al 8000 del contenedor
+    volumes:
+      - .:/app  # (Opcional) Sincroniza tu código local con el del contenedor
+                # para no tener que reconstruir por cada cambio en main.py
+
+  # --- Servicio 2: El Front End (servido por Nginx) ---
+  frontend:
+    image: nginx:alpine # Usamos una imagen ligera de un servidor web (Nginx)
+    ports:
+      - "80:80" # Mapea el puerto 80 del host (HTTP) al 80 del contenedor
+    volumes:
+      # Montamos tu index.html dentro de la carpeta que Nginx sirve por defecto
+      - ./index.html:/usr/share/nginx/html/index.html
