@@ -1,201 +1,68 @@
-1. Contexto
-Durante el curso, todos los estudiantes han trabajado con el mismo conjunto de datos MHealth y el mismo problema:
+# Proyecto Final: Aplicación Web de Reconocimiento de Actividad MHealth
 
-Problema central: Reconocimiento de actividad humana en series de tiempo, utilizando ventanas temporales construidas a partir del dataset MHealth.
+Esta es la entrega del Proyecto Final del Taller Integrado. El objetivo es una aplicación web completa que despliega un modelo de Machine Learning (Random Forest) entrenado para reconocer actividades humanas (ej. "Caminando", "Sentado") a partir de datos de sensores del dataset MHealth.
 
-En las etapas previas se abordó:
+El énfasis del proyecto está en el **despliegue técnico** y la integración de todo el ciclo de vida del software (Datos -> Modelo -> API -> Interfaz de Usuario), cumpliendo con todos los requisitos de la Etapa 1.
 
-Obtención de datos MHealth.
+## 🚀 Arquitectura del Sistema
 
-Análisis exploratorio de los patrones de comportamiento normal y anómalo.
+La aplicación sigue una arquitectura de microservicios, gestionada íntegramente por **Docker Compose**. Esto garantiza un despliegue **reproducible** y consistente.
 
-Modelado y evaluación de algoritmos para detección de anomalías.
+La arquitectura consta de dos servicios principales:
 
-El Proyecto Final corresponde a la fase de despliegue, donde el foco es integrar lo anterior en un sistema funcional: Back End + Front End + documentación de uso y despliegue.
+* **Servicio `backend` (Python/FastAPI):**
+    * Es una API de **FastAPI** construida sobre una imagen de **Python 3.11**.
+    * Carga el modelo `rf_model.joblib` (un Random Forest entrenado en el "Producto 3") al iniciarse.
+    * Expone el endpoint `POST /detect` que recibe un archivo `.log`.
+    * Aplica el pipeline de pre-procesamiento (limpieza de datos y selección de 21 features) idéntico al del notebook de entrenamiento.
+    * Devuelve la predicción de la actividad más frecuente (moda) y un gráfico de muestra en formato JSON.
 
-2. Objetivo del proyecto final
-Desarrollar y desplegar, de forma individual, una aplicación web completa para reconocimiento de actividad humana en MHealth que:
+* **Servicio `frontend` (Nginx/HTML):**
+    * Es un servidor web **Nginx** (Alpine) que sirve un único archivo `index.html`.
+    * El `index.html` contiene **JavaScript "puro" (Vanilla JS)** que se encarga de:
+        * Mostrar el formulario de subida.
+        * Llamar (vía `fetch`) al endpoint `/detect` del `backend` cuando el usuario sube un archivo.
+        * Renderizar la respuesta (actividad y gráfico) en la página.
 
-Integre un modelo de reconocimiento de actividad humana en series de tiempo (derivado de la etapa de modelado).
+## 🛠️ Tecnologías Utilizadas
 
-Exponga un Back End con API para realizar detecciones.
+* **Backend:** Python 3.11, FastAPI, Pandas, Scikit-learn, Joblib, Matplotlib
+* **Frontend:** HTML5, CSS3, JavaScript (Vanilla JS)
+* **Servidor Web (Frontend):** Nginx
+* **Despliegue y Orquestación:** Docker & Docker Compose
 
-Ofrezca un Front End que consuma la API y permita a un usuario no técnico interactuar con el sistema.
+## 📋 Prerrequisitos
 
-Incluya instrucciones de despliegue y uso claras y reproducibles.
+Para ejecutar este proyecto, solo necesitas tener una dependencia instalada en tu máquina:
 
-Documente el uso de IA generativa (si la hubo) mediante una carpeta de prompts reutilizables.
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Debe estar en ejecución)
 
-El énfasis está en el despliegue técnico y en la integración de ciencia de datos con desarrollo de software a lo largo del ciclo de vida del proyecto.
+## ⚡ Instrucciones de Despliegue y Uso
 
-La explicabilidad/XAI es deseable pero no obligatoria. Si se incluye, se considerará positivamente, pero no es requisito para aprobar.
+El proyecto está 100% contenerizado. No es necesario instalar Python, `pip`, `venv` ni Nginx localmente. Docker se encarga de todo.
 
-3. Estructura del Proyecto Final (Etapas internas)
-Dentro del proyecto final se distinguen tres etapas:
+1.  Clona o descarga este repositorio en tu máquina.
+2.  Abre una terminal en la carpeta raíz del proyecto (donde se encuentra el archivo `docker-compose.yml`).
+3.  Ejecuta el siguiente comando. Esto construirá las imágenes de Docker (la primera vez puede tardar unos minutos) y levantará ambos servicios:
 
-Etapa 1 – Desarrollo y despliegue técnico (código + repositorio)
-Implementación del Back End y del Front End.
+    ```bash
+    docker-compose up --build
+    ```
 
-Integración del modelo de reconocimiento de actividad humana.
+4.  Espera a que la terminal termine de construir y muestre los logs de los servicios `backend-1` y `frontend-1`, indicando que están en funcionamiento.
 
-Consumo de la API desde el Front End.
+### Cómo Probar la Aplicación
 
-Preparación de instrucciones de despliegue y uso.
+1.  Una vez que los contenedores estén corriendo, abre tu navegador web y ve a:
 
-Organización del repositorio Git del proyecto.
+    **[http://localhost](http://localhost)**
+    *(Nota: Es `http://localhost`, no `localhost:8000`)*
 
-Inclusión de una carpeta de prompts si se utilizó IA generativa.
+2.  Verás la interfaz "Detector de Actividad MHealth".
+3.  Usa el formulario para subir uno de los archivos `.log` del dataset MHealth (ej. `mHealth_subject1.log`).
+4.  Presiona el botón "Analizar Actividad".
+5.  El sistema contactará al `backend`, procesará el archivo y mostrará la predicción del modelo en tiempo real.
 
-El sistema debe permitir la ingesta de archivos con el mismo formato con que se alimenta el modelo original (archivos .log del conjunto de datos de MHealth)
+### Para Detener la Aplicación
 
-Éste último punto plantea una dificultad técnica: la entrada de datos que tiene que recibir el Front End tiene que ser compatible con los datos originales del conjunto Mhealth. Y por lo tanto para poder consumir la API, es necesario aplicar todo el procesamiento previo a los datos para que sea compatible con el modelo predictivo. Por lo tanto es necesario generalizar el trabajo realizado en la etapa de pre-procesamiento de los datos en funciones para procesar nuevos casos a modo de Pipeline.
-
-
-
-
-
-Etapa 2 – Informe escrito (documento técnico)
-Informe individual, máximo 12 páginas sin anexos.
-
-Se puede incluir material suplementario como anexos o archivos adjuntos (figuras más grandes, código, ejemplos ampliados, configuraciones, etc.).
-
-Este informe corresponde formalmente a la Etapa 2 del proyecto según la planificación del curso.
-
-Etapa 3 – Presentación y demostración
-Presentación individual de 8 minutos, más 2 minutos de preguntas.
-
-Debe incluir una demostración en vivo del sistema (live demo).
-
-Esta presentación corresponde a la Etapa 3 del proyecto y es requisito para aprobar el proyecto (ver detalle en evaluación).
-
-4. Requisitos técnicos
-4.1. Back End
-El estudiante puede elegir libremente el lenguaje y framework (por ejemplo: Python + FastAPI/Flask/Django, Node.js/Express, Java/Spring, etc.).
-
-Debe existir una API claramente definida con, al menos:
-
-Un endpoint de verificación, por ejemplo:
-
-GET /health → responde un mensaje simple indicando que el servicio está en ejecución.
-
-Un endpoint de reconocimiento de actividad humana, por ejemplo:
-
-POST /detect (nombre a elección razonable):
-
-Entrada: archivo .log  (por ejemplo, JSON con las características necesarias). En otras palabras, predecir los datos de un sujeto que no participó en el entrenamiento.
-
-Salida: resultado de detección de anomalías (Categoría, y corresponde la actividad que está realizando el sujeto.), más cualquier información adicional que se estime útil.
-
-El Back End debe cargar y utilizar el modelo entrenado previamente (o una versión refinada consistente con el mismo problema).
-
-4.2. Front End
-Tecnología de libre elección (HTML/CSS/JS “puro”, React, Vue, etc.).
-
-Requisitos mínimos:
-
-Debe consumir la API del Back End (no se acepta lógica puramente local sin interacción con el servicio).
-
-Debe permitir:
-
-Ingresar datos o parámetros necesarios para formar la ventana / caso a evaluar.
-
-Enviar una petición al Back End.
-
-Mostrar de forma clara el resultado de la detección (por ejemplo, mensaje “mostrando la actividad”, gráficos simples, etc.).
-
-La interfaz debe estar pensada para un usuario no experto (etiquetas comprensibles, mensajes claros).
-
-4.3. Despliegue e instrucciones de uso
-El sistema debe ser ejecutado en un entorno reproducible (por ejemplo, en una máquina local).
-
-Docker es altamente recomendado. Si se utiliza, se deben incluir los archivos correspondientes (Dockerfile, docker-compose.yml, etc.).
-
-Si no se utiliza Docker, el informe y/o el README deben indicar:
-
-Sistema operativo objetivo.
-
-Versiones de lenguajes y dependencias claves.
-
-Pasos concretos para instalar dependencias y ejecutar Back End y Front End.
-
-Cómo probar rápidamente que el sistema está funcionando.
-
-5. Repositorio Git (obligatorio)
-El proyecto debe estar en un repositorio Git (por ejemplo GitHub, GitLab o similar).
-
-El informe debe incluir el enlace al repositorio.
-
-Se espera un repositorio mínimamente ordenado, con:
-
-Código separado en carpetas lógicas (backend, frontend, etc.).
-
-Archivo README con instrucciones básicas de ejecución.
-
-Carpeta prompts/ u otro nombre razonable para los prompts usados (si aplica).
-
-6. Carpeta de prompts (IA generativa)
-Si se utilizaron herramientas como ChatGPT, Copilot u otras, se debe incluir una carpeta (por ejemplo prompts/) con:
-
-Archivos de texto o markdown que contengan los prompts más relevantes utilizados.
-
-Opcionalmente, una línea que indique brevemente para qué parte del proyecto se usó cada prompt.
-
-7. Informe escrito (Etapa 2)
-Máximo 12 páginas sin anexos.
-
-El material suplementario (tablas, figuras grandes, pseudocódigo, ejemplos extensos, etc.) puede ir en anexos o archivos adjuntos y no cuenta en el límite de páginas.
-
-El informe debe incluir, al menos:
-
-Resumen del sistema y del problema de detección de anomalías.
-
-Contexto (cómo se conecta con las etapas previas del curso).
-
-Arquitectura del sistema (incluyendo un diagrama simple de Front End, Back End y modelo).
-
-Descripción de tecnologías escogidas para Back End y Front End, con una breve justificación.
-
-Descripción de la API (endpoints, formato de entrada/salida, ejemplos breves).
-
-Despliegue e instrucciones de uso.
-
-Resultados de pruebas básicas (casos de prueba razonables para mostrar que el sistema funciona extremo a extremo).
-
-Reflexión sobre el rol del despliegue en el ciclo de vida de ciencia de datos y posibles mejoras futuras.
-
-(Opcional) Breve mención de elementos de XAI, si se incorporaron.
-
-8. Presentación y demo (Etapa 3)
-Duración:
-
-8 minutos de presentación + 2 minutos de preguntas.
-
-La presentación debe incluir:
-
-Breve explicación del problema y del contexto (reconocimiento de actividad humana en MHealth).
-
-Descripción de la arquitectura general (Front End, Back End, modelo).
-
-Tecnologías utilizadas y razones principales de la elección.
-
-Demostración en vivo del sistema (live demo): se debe mostrar el sistema funcionando, desde la interacción del usuario hasta la respuesta.
-
-Breve reflexión sobre dificultades técnicas y aprendizajes.
-
-La presentación (con demo en vivo) es requisito para aprobar el proyecto final.
-Si el estudiante no realiza la presentación, no aprueba el proyecto, independientemente de la nota del informe o del código. Eventualmente habrá un plazo para una presentación recuperativa.
-
-9. Evaluación (propuesta de distribución)
-La ponderación global puede organizarse de la siguiente forma:
-
-30% – Despliegue Back End + API (calidad técnica, robustez básica, integración del modelo).
-
-25% – Front End + consumo de la API (usabilidad básica, claridad de la interacción, integración correcta con el Back End).
-
-25% – Informe e instrucciones de uso (claridad, estructura, diagrama de arquitectura, reproducibilidad).
-
-10% – Carpeta de prompts y uso responsable de IA generativa (si aplica).
-
-10% – Presentación y demo (claridad al explicar, manejo del tiempo, demostración en vivo).
-
-Puedes ajustar estos porcentajes en la pauta oficial, pero esta distribución sigue lo que comentaste y enfatiza el despliegue técnico.
+* Vuelve a la terminal donde ejecutaste `docker-compose up` y presiona `CTRL + C`.
