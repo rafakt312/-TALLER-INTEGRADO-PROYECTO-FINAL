@@ -44,7 +44,7 @@ ACTIVITY_LABELS = {
 
 # --- 2. CONFIGURACIÓN DE APP Y CORS ---
 app = FastAPI()
-origins = ["http://localhost", "http://127.0.0.1"]
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
