@@ -66,3 +66,5 @@ El proyecto está 100% contenerizado. No es necesario instalar Python, `pip`, `v
 ### Para Detener la Aplicación
 
 * Vuelve a la terminal donde ejecutaste `docker-compose up` y presiona `CTRL + C`.
+
+Nota sobre el Modelo: El archivo rf_model.joblib no está incluido en este repositorio debido a su tamaño. Para ejecutar el proyecto, se debe generar ejecutando el notebook Producto3.ipynb o solicitar el archivo directamente al autor. Debe colocarse en la misma carpeta que main.py.
