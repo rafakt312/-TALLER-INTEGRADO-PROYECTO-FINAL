@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
+# IMPORTANTE: Importar StaticFiles para servir imágenes
+from fastapi.staticfiles import StaticFiles
 import joblib
 import numpy as np
 import pandas as pd
@@ -7,9 +9,13 @@ import io
 import os
 from collections import Counter
 from sklearn.metrics import confusion_matrix
-from scipy import stats
 
-app = FastAPI(title="Examen HAR - Pipeline Completo", version="Final")
+app = FastAPI(title="Examen HAR - Pipeline Completo", version="Final.Fixed.Img")
+
+# --- CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS ---
+# ⚠️ DEBES CREAR UNA CARPETA LLAMADA 'static' JUNTO A ESTE script
+# Y COLOCAR AHÍ TU IMAGEN 'image_8.png'
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Rutas y Configuración
 MODEL_PATH = "models/mhealth_rf_model.pkl"
@@ -18,10 +24,6 @@ WINDOW_SECONDS = 2
 WINDOW_SIZE = FS * WINDOW_SECONDS
 OVERLAP = 0.5
 STEP_SIZE = int(WINDOW_SIZE * (1 - OVERLAP))
-
-# Configuración Visual
-VENTANA_RODILLO = 12 
-MIN_DURACION_FINAL = 8.0 
 
 ACTIVITY_LABELS = {
     0: "Null", 1: "L1: De pie", 2: "L2: Sentado", 3: "L3: Acostado", 4: "L4: Caminar",
@@ -37,7 +39,6 @@ html_content = r"""
 <html>
 <head>
     <title>Examen HAR - Dashboard</title>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
         .container { max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -48,7 +49,19 @@ html_content = r"""
         button:hover { background-color: #0056b3; }
 
         .section-title { border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 40px; margin-bottom: 20px; color: #495057; font-size: 1.5em; }
-        #timeline_chart { height: 350px; width: 100%; }
+        
+        /* Estilo para la imagen estática */
+        .static-image-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .static-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
 
         .matrix-wrapper { display: flex; justify-content: center; overflow-x: auto; margin-top: 20px; }
         table { border-collapse: collapse; font-size: 0.9em; }
@@ -74,16 +87,20 @@ html_content = r"""
         </div>
 
         <div id="resultSection" class="hidden">
-            <h2 class="section-title">1. Comparación Temporal: Predicción vs Realidad</h2>
-            <div id="timeline_chart"></div>
+            <h2 class="section-title">1. Matriz de Confusión (Imagen Estática)</h2>
+            <div class="static-image-container">
+                <img src="/static/image_8.png" alt="Matriz de Confusión del Modelo" class="static-image">
+            </div>
 
-            <h2 class="section-title">2. Matriz de Confusión (%)</h2>
+            <h2 class="section-title">2. Matriz de Confusión (Calculada del Archivo Actual)</h2>
+            <p style="text-align: center; color: #666;">(Esta matriz se calcula dinámicamente con los datos del archivo que acabas de subir)</p>
             <div class="matrix-wrapper"><table id="confMatrix"></table></div>
         </div>
     </div>
 
     <script>
-        google.charts.load('current', {'packages':['timeline']});
+        // YA NO NECESITAMOS GOOGLE CHARTS PARA TIMELINE
+        // google.charts.load('current', {'packages':['timeline']});
 
         async function procesar() {
             const file = document.getElementById('logFile').files[0];
@@ -99,7 +116,9 @@ html_content = r"""
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
                 
-                drawTimeline(data.timeline_pred, data.timeline_true);
+                // YA NO DIBUJAMOS LA LÍNEA DE TIEMPO
+                // drawTimeline(data.timeline_pred, data.timeline_true);
+                
                 if(data.confusion_matrix && data.confusion_matrix.length > 0) {
                     drawMatrix(data.confusion_matrix, data.labels);
                 }
@@ -108,30 +127,7 @@ html_content = r"""
             finally { document.getElementById('loading').style.display = 'none'; }
         }
 
-        function drawTimeline(predData, trueData) {
-            const container = document.getElementById('timeline_chart');
-            const chart = new google.visualization.Timeline(container);
-            const dataTable = new google.visualization.DataTable();
-            dataTable.addColumn({ type: 'string', id: 'Tipo' });
-            dataTable.addColumn({ type: 'string', id: 'Actividad' });
-            dataTable.addColumn({ type: 'string', role: 'tooltip', p: {html: true} });
-            dataTable.addColumn({ type: 'date', id: 'Start' });
-            dataTable.addColumn({ type: 'date', id: 'End' });
-
-            const rows = [];
-            predData.forEach(d => {
-                const tooltip = `<div style="padding:10px"><b>${d.actividad}</b><br>Confianza: ${(d.confianza*100).toFixed(0)}%</div>`;
-                rows.push(['1. Predicción Modelo', d.actividad, tooltip, new Date(0,0,0,0,0,d.inicio), new Date(0,0,0,0,0,d.fin)]);
-            });
-            if (trueData && trueData.length > 0) {
-                trueData.forEach(d => {
-                    const tooltip = `<div style="padding:10px"><b>REAL: ${d.actividad}</b></div>`;
-                    rows.push(['2. Etiqueta Real', d.actividad, tooltip, new Date(0,0,0,0,0,d.inicio), new Date(0,0,0,0,0,d.fin)]);
-                });
-            }
-            dataTable.addRows(rows);
-            chart.draw(dataTable, { timeline: { groupByRowLabel: true }, backgroundColor: '#fff', colors: ['#4285F4', '#DB4437', '#F4B400', '#0F9D58', '#AB47BC', '#00ACC1', '#FF7043', '#9E9D24', '#5C6BC0', '#F06292', '#8D6E63', '#78909C'] });
-        }
+        // FUNCIÓN drawTimeline ELIMINADA
 
         function drawMatrix(matrix, labels) {
             const table = document.getElementById("confMatrix");
@@ -163,8 +159,12 @@ html_content = r"""
 def load_model():
     global model
     if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
-        print("✅ Modelo PKL cargado.")
+        try:
+            model = joblib.load(MODEL_PATH)
+            print("✅ Modelo PKL cargado correctamente.")
+        except Exception as e:
+            print(f"⚠️ Advertencia de versión al cargar PKL: {e}")
+            print("Intentando cargar de todas formas...")
     else:
         print("❌ Error: No se encuentra el modelo. Ejecuta pipeline_mhealth.py primero.")
 
@@ -174,7 +174,7 @@ def index(): return html_content
 def calc_mag(df, c1, c2, c3):
     return np.sqrt(df[c1]**2 + df[c2]**2 + df[c3]**2)
 
-def extraer_features(ventana):
+def extraer_estadisticas(ventana):
     mean = np.mean(ventana, axis=0)
     std = np.std(ventana, axis=0)
     max_val = np.max(ventana, axis=0)
@@ -184,51 +184,7 @@ def extraer_features(ventana):
     var = np.var(ventana, axis=0)
     return np.concatenate([mean, std, max_val, min_val, median, ptp, var])
 
-def smooth_predictions(preds, times, confs):
-    if not preds: return []
-    n = len(preds)
-    smoothed = []
-    for i in range(n):
-        s = max(0, i - VENTANA_RODILLO // 2)
-        e = min(n, i + VENTANA_RODILLO // 2)
-        win = preds[s:e]
-        smoothed.append(Counter(win).most_common(1)[0][0] if win else preds[i])
-    
-    timeline = []
-    curr = {"actividad": smoothed[0], "inicio": times[0], "fin": times[0]+1, "c_sum": confs[0], "count": 1}
-    for i in range(1, n):
-        t = times[i]
-        if smoothed[i] == curr["actividad"]:
-            curr["fin"] = t + 1; curr["c_sum"] += confs[i]; curr["count"] += 1
-        else:
-            curr["fin"] = max(curr["fin"], t)
-            avg = curr["c_sum"] / curr["count"]
-            if (curr["fin"] - curr["inicio"]) > 5: avg = min(0.99, 0.85 + avg*0.15)
-            timeline.append({"actividad": curr["actividad"], "inicio": curr["inicio"], "fin": curr["fin"], "confianza": avg})
-            curr = {"actividad": smoothed[i], "inicio": t, "fin": t+1, "c_sum": confs[i], "count": 1}
-    avg = curr["c_sum"] / curr["count"]
-    if (curr["fin"] - curr["inicio"]) > 5: avg = min(0.99, 0.85 + avg*0.15)
-    timeline.append({"actividad": curr["actividad"], "inicio": curr["inicio"], "fin": curr["fin"], "confianza": avg})
-    
-    final = [timeline[0]]
-    for i in range(1, len(timeline)):
-        prev = final[-1]; now = timeline[i]
-        if (now["fin"] - now["inicio"] < MIN_DURACION_FINAL) or (now["actividad"] == prev["actividad"]):
-            prev["fin"] = now["fin"]
-        else: final.append(now)
-    return final
-
-def get_true_timeline(labels, times):
-    if not labels: return []
-    timeline = []
-    curr = {"actividad": labels[0], "inicio": times[0], "fin": times[0]+1}
-    for i in range(1, len(labels)):
-        t = times[i]
-        if labels[i] == curr["actividad"]: curr["fin"] = t + 1
-        else: curr["fin"] = max(curr["fin"], t); timeline.append(curr); curr = {"actividad": labels[i], "inicio": t, "fin": t+1}
-    timeline.append(curr)
-    for item in timeline: item["actividad"] = ACTIVITY_LABELS.get(item["actividad"], str(item["actividad"]))
-    return timeline
+# Funciones de suavizado y timeline eliminadas del backend pues no se usan visualmente
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
@@ -256,23 +212,17 @@ async def predict(file: UploadFile = File(...)):
         cols_features = [c for c in df.columns if c != 'label']
         df_feat = df[cols_features] # 26 canales
         
-        preds_list = []; confs_list = []; times_list = []; true_list = []
+        preds_list = []; true_list = []
         
         for start in range(0, len(df) - int(WINDOW_SIZE), STEP_SIZE):
             end = start + int(WINDOW_SIZE)
             win_data = df_feat.iloc[start:end].values
             
-            # Extraer 182 Features
             f = extraer_estadisticas(win_data).reshape(1, -1)
             
             # Predecir
-            probs = model.predict_proba(f)[0]
-            lbl = model.classes_[np.argmax(probs)]
-            conf = np.max(probs)
-            
+            lbl = model.predict(f)[0]
             preds_list.append(ACTIVITY_LABELS.get(lbl, str(lbl)))
-            confs_list.append(conf)
-            times_list.append(round(start/FS, 2))
             
             # Etiqueta Real
             try:
@@ -280,10 +230,7 @@ async def predict(file: UploadFile = File(...)):
                 true_list.append(real)
             except: true_list.append(0)
 
-        # Visualizaciones
-        tl_pred = smooth_predictions(preds_list, times_list, confs_list)
-        tl_true = get_true_timeline(true_list, times_list)
-        
+        # Solo calculamos la matriz de confusión dinámica
         mtx = []
         labels_mtx = []
         if true_list:
@@ -307,8 +254,7 @@ async def predict(file: UploadFile = File(...)):
                 mtx = cm.tolist()
 
         return {
-            "timeline_pred": tl_pred,
-            "timeline_true": tl_true,
+            # Ya no enviamos datos de timeline
             "confusion_matrix": mtx,
             "labels": labels_mtx
         }
